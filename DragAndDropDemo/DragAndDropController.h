@@ -1,5 +1,5 @@
 //
-//  ViewController.h
+//  DragAndDropController.h
 //  DragAndDropDemo
 //
 //  Created by LinChanglong on 2017/12/22.
@@ -8,8 +8,6 @@
 
 #import <UIKit/UIKit.h>
 
-@interface ViewController : UIViewController
-
+@interface DragAndDropController : UIViewController
 
 @end
-
