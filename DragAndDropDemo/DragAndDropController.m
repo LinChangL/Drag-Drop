@@ -11,6 +11,7 @@
 #import "ProviderReadItem.h"
 #import "ProviderReadVideo.h"
 #import "ProviderReadFolder.h"
+#import "ProviderWrite.h"
 #import <MobileCoreServices/MobileCoreServices.h>
 #import "DocUtils.h"
 
@@ -27,11 +28,13 @@
 
 typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
 
-@interface DragAndDropController () <UIDragInteractionDelegate, UIDropInteractionDelegate, UIGestureRecognizerDelegate>
-@property (nonatomic, assign) UIView *preView;
+@interface DragAndDropController () <UIDragInteractionDelegate, UIDropInteractionDelegate>
+@property (nonatomic, assign) UIView *preView; //上次拖入的文件
 @property (nonatomic, strong) UIScrollView *scrollView;
 @property (nonatomic, strong) UIView *contentView;
 @property (nonatomic, strong) UILabel *topLabel;
+@property (nonatomic, strong) NSMutableDictionary *infoDic;
+@property (nonatomic, assign) NSInteger index;
 @end
 
 @implementation DragAndDropController
@@ -40,6 +43,7 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
     [super viewDidLoad];
     [self configViews];
     [self enableDrop];
+    self.index = 0;
 }
 
 - (UIScrollView *)scrollView {
@@ -52,9 +56,6 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
             self.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
         }
         [self.view addSubview:_scrollView];
-        UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tap:)];
-        tap.delegate = self;
-        [self.scrollView addGestureRecognizer:tap];
     }
     return _scrollView;
 }
@@ -65,6 +66,12 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
         if ([subView isKindOfClass:[UILabel class]]) {
             UILabel *label = (UILabel *)subView;
             height += [label sizeThatFits:CGSizeMake(size.width - 2 * MARGIN, CGFLOAT_MAX)].height;
+        } else if ([subView isKindOfClass:[UIImageView class]]) {
+            UIImageView *imageView = (UIImageView *)subView;
+            UIImage *image = imageView.image;
+            CGFloat imageHeight = image.size.height;
+            CGFloat imageWidth = image.size.width;
+            height += (size.width - 2 * MARGIN) * imageHeight / imageWidth;
         } else {
             height += subView.frame.size.height;
         }
@@ -102,6 +109,13 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
     return _preView;
 }
 
+- (NSMutableDictionary *)infoDic {
+    if (_infoDic == NULL) {
+        _infoDic = [NSMutableDictionary dictionary];
+    }
+    return _infoDic;
+}
+
 - (void)configViews {
     [self.scrollView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.top.mas_equalTo(self.view.mas_safeAreaLayoutGuideTop);
@@ -122,12 +136,22 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
     }];
 }
 
+// 根据UTI获取文件后缀
 - (NSString *)pathExtensionFromUTI:(NSString *)uti {
     CFStringRef theUTI = (__bridge CFStringRef)uti;
     CFStringRef results = UTTypeCopyPreferredTagWithClass(theUTI, kUTTagClassFilenameExtension);
     return (__bridge_transfer NSString *)results;
 }
 
+// 根据文件后缀获取UTI
+- (NSString *)preferredUTIForExtention:(NSString *)ext {
+    //Request the UTI via the file extension
+    CFStringRef extension = (__bridge CFStringRef)ext;
+    NSString *theUTI = (__bridge_transfer NSString *)UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, extension, NULL);
+    return theUTI;
+}
+
+// 将拖入的文件写入本地
 - (NSURL *)writeFile:(ProviderRead *)file fileName:(NSString *)fileName {
     NSString *resID = [self genID];
     NSString *docPath = [self getDocumentPath:resID];
@@ -136,6 +160,7 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
     return [NSURL fileURLWithPath:docFile];
 }
 
+// 生成文件ID
 - (NSString *)genID {
     long long interval = [[NSDate date] timeIntervalSince1970] * 1000000;
     NSString *resID = [NSString stringWithFormat:@"%d%lld", arc4random() % 1000, interval];
@@ -146,17 +171,30 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
     NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
     NSString *localDir = [paths objectAtIndex:0];
     NSString *filePath = [localDir stringByAppendingPathComponent:fileName];
+    BOOL isDir = YES;
+    if (![[NSFileManager defaultManager] fileExistsAtPath:filePath isDirectory:&isDir]) {
+        NSError *error = nil;
+        NSDictionary *attributes = [NSDictionary dictionaryWithObject:NSFileProtectionNone
+                                                               forKey:NSFileProtectionKey];
+        [[NSFileManager defaultManager] createDirectoryAtPath:filePath withIntermediateDirectories:YES attributes:attributes error:&error];
+        if (error) {
+            
+        }
+    }
     return filePath;
 }
 
 - (void)dropView:(UIView *)view withHeight:(CGFloat)height {
     [self.contentView addSubview:view];
+    [self enableDragWithView:view];
     [view mas_makeConstraints:^(MASConstraintMaker *make) {
         make.top.equalTo(self.preView.mas_bottom).offset(10);
         make.left.mas_equalTo(10);
         if ([view isKindOfClass:[UIImageView class]]) {
             UIImageView *imageView = (UIImageView *)view;
-            make.size.mas_equalTo(imageView.image.size);
+            make.left.mas_equalTo(MARGIN);
+            make.right.mas_equalTo(-MARGIN);
+            make.height.equalTo(view.mas_width).multipliedBy(imageView.image.size.height / imageView.image.size.width);
         } else if ([view isKindOfClass:[UILabel class]]) {
             make.right.mas_equalTo(-MARGIN);
         } else {
@@ -173,10 +211,11 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
     self.scrollView.contentSize = CGSizeMake(self.contentView.frame.size.width, self.contentView.frame.size.height + MARGIN + height);
     self.preView = view;
 }
+
 - (void)enableDrop {
     if (SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"11.0")) {
         if (@available(iOS 11.0, *)) {
-            UIDropInteraction* drop = [[UIDropInteraction alloc] initWithDelegate:self];
+            UIDropInteraction *drop = [[UIDropInteraction alloc] initWithDelegate:self];
             [self.scrollView addInteraction:drop];
         }
     }
@@ -215,7 +254,7 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
 - (void)dropInteraction:(UIDropInteraction *)interaction performDrop:(id<UIDropSession>)session
 {
     uint64_t masSize = MAX_ATTACHEMT_SIZE;
-
+    
     __block BOOL hasAlert = NO;
     for (UIDragItem *item in [session items]) {
         __block NSItemProvider *provider = [item itemProvider];
@@ -235,7 +274,7 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
                                     }
                                 }
                             }
-
+                            
                             [provider loadObjectOfClass:[ProviderReadItem class] completionHandler:^(id<NSItemProviderReading>  _Nullable object, NSError * _Nullable error) {
                                 if (!error) {
                                     ProviderReadItem *item = (ProviderReadItem *)object;
@@ -243,6 +282,8 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
                                         dispatch_async(dispatch_get_main_queue(), ^{
                                             NSURL *url = [self writeFile:item fileName:fileName];
                                             UIView *view = [[UIView alloc] init];
+                                            view.tag = self.index++;
+                                            [self.infoDic setObject:url forKey:@(view.tag)];
                                             view.backgroundColor = UI_COLOR(242, 243, 244);
                                             NSString *imageName = [DocUtils getDragIconByTitle:fileName];
                                             UIImageView *fileIcon = [[UIImageView alloc] initWithImage:[UIImage imageNamed:imageName]];
@@ -290,6 +331,8 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
                         //handle image
                         dispatch_async(dispatch_get_main_queue(), ^{
                             UIImageView *imageView = [[UIImageView alloc] initWithImage:image];
+                            imageView.tag = self.index++;
+                            [self.infoDic setObject:image forKey:@(imageView.tag)];
                             [self dropView:imageView withHeight:image.size.height];
                         });
                     } else {
@@ -303,6 +346,8 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
                     if (str) {
                         dispatch_async(dispatch_get_main_queue(), ^{
                             UILabel *label = [[UILabel alloc] init];
+                            label.tag = self.index++;
+                            [self.infoDic setObject:str forKey:@(label.tag)];
                             [label setText:str];
                             [label setFont:[UIFont systemFontOfSize:15.0f]];
                             [label setTextColor:[UIColor blackColor]];
@@ -327,4 +372,105 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
     }
 }
 
+
+
+- (void)enableDragWithView:(UIView *)view {
+    if (SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"11.0")) {
+        if (@available(iOS 11.0, *)) {
+            UIDragInteraction *drag = [[UIDragInteraction alloc] initWithDelegate:self];
+            [view addInteraction:drag];
+            view.userInteractionEnabled = YES;
+        }
+    }
+}
+
+- (NSArray*)itemsForSession:(id<UIDragSession>)session
+{
+    NSItemProvider* provider;
+    BOOL isDragable = NO;
+    for (UIView *subview in self.contentView.subviews) {
+        CGPoint point = [session locationInView:self.contentView];
+        CALayer *testViewLayer = subview.layer.presentationLayer;
+        if (CGRectContainsPoint(testViewLayer.frame, point)) {
+            id object = self.infoDic[@(subview.tag)];
+            if ([object isKindOfClass:[NSURL class]]) {
+                NSURL *url = object;
+                NSData *data = [NSData dataWithContentsOfURL:url];
+                if (data) {
+                    NSString *fileName = [url lastPathComponent];
+                    NSString *extension = [fileName pathExtension];
+                    NSString *identifier = [self preferredUTIForExtention:extension];
+                    ProviderWrite *providerWrite = [ProviderWrite objectWithItemProviderData:data typeIdentifier:identifier error:nil];
+                    provider = [[NSItemProvider alloc] initWithObject:providerWrite];
+                    if (provider) {
+                        provider.suggestedName = fileName;
+                        isDragable = YES;
+                    }
+                } else {
+                    return nil;
+                }
+            } else {
+                provider = [[NSItemProvider alloc] initWithObject:object];
+                isDragable = YES;
+            }
+        }
+    }
+    if (!isDragable) {
+        return nil;
+    }
+    UIDragItem* item = [[UIDragItem alloc] initWithItemProvider:provider];
+    return @[item];
+}
+
+#pragma mark - UIDragInteractionDelegate
+- (NSArray<UIDragItem *> *)dragInteraction:(UIDragInteraction *)interaction itemsForBeginningSession:(id<UIDragSession>)session
+{
+    interaction.allowsSimultaneousRecognitionDuringLift = YES;
+    NSArray* items = [self itemsForSession:session];
+    return items;
+}
+
+- (NSArray<UIDragItem *> *)dragInteraction:(UIDragInteraction *)interaction itemsForAddingToSession:(id<UIDragSession>)session withTouchAtPoint:(CGPoint)point
+{
+    NSArray* items = [self itemsForSession:session];
+    return items;
+}
+
+//- (nullable UITargetedDragPreview *)dragInteraction:(UIDragInteraction *)interaction previewForLiftingItem:(UIDragItem *)item session:(id<UIDragSession>)session
+//{
+//    NSDictionary *dragJson = self.dragInfo[EDITOR_JSON_CONTENT][0];
+//    NSString *imageName = @"";
+//    NSString *str = self.dragInfo[EDITOR_TEXT_CONTENT];
+//    if (str.length > 0) {
+//        imageName = @"drag_txt";
+//    } else if ([dragJson[@"blockType"] isEqualToString:@"image"]) {
+//        imageName = @"drag_pic";
+//    } else if ([dragJson[@"blockType"] isEqualToString:@"attachment"]) {
+//        imageName = [YNDocUtils getDragIconByTitle:dragJson[@"fileName"]];
+//    }
+//    UIImageView *dragImageView = [[UIImageView alloc] initWithImage:[UIImage imageNamed:imageName]];
+//    self.dragImageView = dragImageView;
+//    [self.editWebView addSubview:self.dragImageView];
+//    self.dragImageView.size = self.dragImageView.image.size;
+//    self.dragImageView.center = self.selectPoint;
+//    UIDragPreviewParameters* params = [UIDragPreviewParameters new];
+//    UIBezierPath* path = [UIBezierPath bezierPathWithRoundedRect:self.dragImageView.bounds cornerRadius:5];
+//    params.visiblePath = path;
+//    params.backgroundColor = [UIColor clearColor];
+//
+//    UIDragPreviewTarget* target = [[UIDragPreviewTarget alloc] initWithContainer:self.dragImageView.superview center:self.selectPoint];
+//
+//    UITargetedDragPreview* preview = [[UITargetedDragPreview alloc] initWithView:self.dragImageView parameters:params target:target];
+//    [self.dragImageView removeFromSuperview];
+//
+//    return preview;
+//}
+
+//- (void)dragInteraction:(UIDragInteraction *)interaction session:(id<UIDragSession>)session didEndWithOperation:(UIDropOperation)operation {
+//    [self.selectedDic removeAllObjects];
+//    self.isMultiDrag = NO;
+//}
+
 @end
+
+
