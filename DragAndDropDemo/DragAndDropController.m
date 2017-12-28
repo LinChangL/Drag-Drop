@@ -331,8 +331,6 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
                         //handle image
                         dispatch_async(dispatch_get_main_queue(), ^{
                             UIImageView *imageView = [[UIImageView alloc] initWithImage:image];
-                            imageView.tag = self.index++;
-                            [self.infoDic setObject:image forKey:@(imageView.tag)];
                             [self dropView:imageView withHeight:image.size.height];
                         });
                     } else {
@@ -346,8 +344,6 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
                     if (str) {
                         dispatch_async(dispatch_get_main_queue(), ^{
                             UILabel *label = [[UILabel alloc] init];
-                            label.tag = self.index++;
-                            [self.infoDic setObject:str forKey:@(label.tag)];
                             [label setText:str];
                             [label setFont:[UIFont systemFontOfSize:15.0f]];
                             [label setTextColor:[UIColor blackColor]];
@@ -390,9 +386,14 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
     CGPoint point = [session locationInView:self.contentView];
     UIView *hitView = [self.contentView hitTest:point withEvent:nil];
     if (hitView) {
-        id object = self.infoDic[@(hitView.tag)];
-        if ([object isKindOfClass:[NSURL class]]) {
-            NSURL *url = object;
+        if ([hitView isKindOfClass:[UIImageView class]]) {
+            UIImageView *imageView = (UIImageView *)hitView;
+            provider = [[NSItemProvider alloc] initWithObject:imageView.image];
+        } else if ([hitView isKindOfClass:[UILabel class]]) {
+            UILabel *label = (UILabel *)hitView;
+            provider = [[NSItemProvider alloc] initWithObject:label.text];
+        } else {
+            NSURL *url = self.infoDic[@(hitView.tag)];
             NSData *data = [NSData dataWithContentsOfURL:url];
             if (data) {
                 NSString *fileName = [url lastPathComponent];
@@ -406,8 +407,6 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
             } else {
                 return nil;
             }
-        } else {
-            provider = [[NSItemProvider alloc] initWithObject:object];
         }
         UIDragItem* item = [[UIDragItem alloc] initWithItemProvider:provider];
         return @[item];
