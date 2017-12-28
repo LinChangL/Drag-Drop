@@ -387,39 +387,33 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
 - (NSArray*)itemsForSession:(id<UIDragSession>)session
 {
     NSItemProvider* provider;
-    BOOL isDragable = NO;
-    for (UIView *subview in self.contentView.subviews) {
-        CGPoint point = [session locationInView:self.contentView];
-        CALayer *testViewLayer = subview.layer.presentationLayer;
-        if (CGRectContainsPoint(testViewLayer.frame, point)) {
-            id object = self.infoDic[@(subview.tag)];
-            if ([object isKindOfClass:[NSURL class]]) {
-                NSURL *url = object;
-                NSData *data = [NSData dataWithContentsOfURL:url];
-                if (data) {
-                    NSString *fileName = [url lastPathComponent];
-                    NSString *extension = [fileName pathExtension];
-                    NSString *identifier = [self preferredUTIForExtention:extension];
-                    ProviderWrite *providerWrite = [ProviderWrite objectWithItemProviderData:data typeIdentifier:identifier error:nil];
-                    provider = [[NSItemProvider alloc] initWithObject:providerWrite];
-                    if (provider) {
-                        provider.suggestedName = fileName;
-                        isDragable = YES;
-                    }
-                } else {
-                    return nil;
+    CGPoint point = [session locationInView:self.contentView];
+    UIView *hitView = [self.contentView hitTest:point withEvent:nil];
+    if (hitView) {
+        id object = self.infoDic[@(hitView.tag)];
+        if ([object isKindOfClass:[NSURL class]]) {
+            NSURL *url = object;
+            NSData *data = [NSData dataWithContentsOfURL:url];
+            if (data) {
+                NSString *fileName = [url lastPathComponent];
+                NSString *extension = [fileName pathExtension];
+                NSString *identifier = [self preferredUTIForExtention:extension];
+                ProviderWrite *providerWrite = [ProviderWrite objectWithItemProviderData:data typeIdentifier:identifier error:nil];
+                provider = [[NSItemProvider alloc] initWithObject:providerWrite];
+                if (provider) {
+                    provider.suggestedName = fileName;
                 }
             } else {
-                provider = [[NSItemProvider alloc] initWithObject:object];
-                isDragable = YES;
+                return nil;
             }
+        } else {
+            provider = [[NSItemProvider alloc] initWithObject:object];
         }
-    }
-    if (!isDragable) {
+        UIDragItem* item = [[UIDragItem alloc] initWithItemProvider:provider];
+        return @[item];
+    } else {
         return nil;
     }
-    UIDragItem* item = [[UIDragItem alloc] initWithItemProvider:provider];
-    return @[item];
 }
 
 #pragma mark - UIDragInteractionDelegate
