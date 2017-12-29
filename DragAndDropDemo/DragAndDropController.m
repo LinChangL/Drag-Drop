@@ -33,7 +33,7 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
 @property (nonatomic, strong) UIScrollView *scrollView;
 @property (nonatomic, strong) UIView *contentView;
 @property (nonatomic, strong) UILabel *topLabel;
-@property (nonatomic, strong) NSMutableDictionary *infoDic;
+@property (nonatomic, strong) NSMutableDictionary <NSNumber *, NSURL *> *infoDic;
 @property (nonatomic, assign) NSInteger index;
 @end
 
