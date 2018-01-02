@@ -14,14 +14,12 @@
 #import "ProviderWrite.h"
 #import <MobileCoreServices/MobileCoreServices.h>
 #import "DocUtils.h"
+#import "AttachView.h"
 
 #define SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(v)  ([[[UIDevice currentDevice] systemVersion] compare:v options:NSNumericSearch] != NSOrderedAscending)
 
-#define UI_COLOR(r,g,b) [UIColor colorWithRed:r/255.f green:g/255.f blue:b/255.f alpha:1.0]
 // 单个附件大小上限（200M）
 #define MAX_ATTACHEMT_SIZE          (200 * 1024 * 1024)
-#define ICON_WIDTH                  40
-#define ICON_HEIGHT                 40
 #define FILE_VIEW_WIDTH             240
 #define FILE_VIEW_HEIGHT            50
 #define MARGIN                      5
@@ -33,8 +31,6 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
 @property (nonatomic, strong) UIScrollView *scrollView;
 @property (nonatomic, strong) UIView *contentView;
 @property (nonatomic, strong) UILabel *topLabel;
-@property (nonatomic, strong) NSMutableDictionary <NSNumber *, NSURL *> *infoDic;
-@property (nonatomic, assign) NSInteger index;
 @end
 
 @implementation DragAndDropController
@@ -43,7 +39,6 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
     [super viewDidLoad];
     [self configViews];
     [self enableDrop];
-    self.index = 0;
 }
 
 - (UIScrollView *)scrollView {
@@ -107,13 +102,6 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
         _preView = self.topLabel;
     }
     return _preView;
-}
-
-- (NSMutableDictionary *)infoDic {
-    if (_infoDic == NULL) {
-        _infoDic = [NSMutableDictionary dictionary];
-    }
-    return _infoDic;
 }
 
 - (void)configViews {
@@ -281,32 +269,8 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
                                     if (item) {
                                         dispatch_async(dispatch_get_main_queue(), ^{
                                             NSURL *url = [self writeFile:item fileName:fileName];
-                                            UIView *view = [[UIView alloc] init];
-                                            view.tag = self.index++;
-                                            [self.infoDic setObject:url forKey:@(view.tag)];
-                                            view.backgroundColor = UI_COLOR(242, 243, 244);
-                                            NSString *imageName = [DocUtils getDragIconByTitle:fileName];
-                                            UIImageView *fileIcon = [[UIImageView alloc] initWithImage:[UIImage imageNamed:imageName]];
-                                            [view addSubview:fileIcon];
-                                            
-                                            UILabel *label = [[UILabel alloc] init];
-                                            [label setText:fileName];
-                                            [label setTextColor:[UIColor grayColor]];
-                                            [label setFont:[UIFont systemFontOfSize:13.0f]];
-                                            [view addSubview:label];
-                                            
-                                            [label mas_makeConstraints:^(MASConstraintMaker *make) {
-                                                make.left.mas_equalTo(fileIcon.mas_right).offset(MARGIN);
-                                                make.centerY.equalTo(view);
-                                                make.right.equalTo(view).offset(-MARGIN);
-                                            }];
-                                            
-                                            [fileIcon mas_makeConstraints:^(MASConstraintMaker *make) {
-                                                make.width.mas_equalTo(ICON_WIDTH);
-                                                make.height.mas_equalTo(ICON_HEIGHT);
-                                                make.centerY.equalTo(view);
-                                                make.left.mas_equalTo(MARGIN);
-                                            }];
+                                            AttachView *view = [[AttachView alloc] initWithFileName:fileName];
+                                            view.url = url;
                                             
                                             [self dropView:view withHeight:FILE_VIEW_HEIGHT];
                                         });
@@ -393,10 +357,10 @@ typedef void(^YNItemProviderDealAction)(NSItemProvider *provider);
             UILabel *label = (UILabel *)hitView;
             provider = [[NSItemProvider alloc] initWithObject:label.text];
         } else {
-            NSURL *url = self.infoDic[@(hitView.tag)];
-            NSData *data = [NSData dataWithContentsOfURL:url];
+            AttachView *view = (AttachView *)hitView;
+            NSData *data = [NSData dataWithContentsOfURL:view.url];
             if (data) {
-                NSString *fileName = [url lastPathComponent];
+                NSString *fileName = [view.url lastPathComponent];
                 NSString *extension = [fileName pathExtension];
                 NSString *identifier = [self preferredUTIForExtention:extension];
                 ProviderWrite *providerWrite = [ProviderWrite objectWithItemProviderData:data typeIdentifier:identifier error:nil];

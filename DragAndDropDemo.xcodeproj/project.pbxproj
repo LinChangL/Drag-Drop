@@ -24,6 +24,7 @@
 		F34E36C61FECE8F400045E49 /* ProviderReadFolder.m in Sources */ = {isa = PBXBuildFile; fileRef = F34E36C01FECE8F400045E49 /* ProviderReadFolder.m */; };
 		F34E36C91FED034B00045E49 /* DocUtils.m in Sources */ = {isa = PBXBuildFile; fileRef = F34E36C81FED034B00045E49 /* DocUtils.m */; };
 		F35516921FED1AAD004E2D6A /* libMasonry.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F355168B1FED1AA0004E2D6A /* libMasonry.a */; };
+		F35BD9CC1FFB273200DEBC4A /* AttachView.m in Sources */ = {isa = PBXBuildFile; fileRef = F35BD9CB1FFB273200DEBC4A /* AttachView.m */; };
 		F3AD76581FF2673300BFF74D /* ProviderWrite.m in Sources */ = {isa = PBXBuildFile; fileRef = F3AD76521FF2673300BFF74D /* ProviderWrite.m */; };
 /* End PBXBuildFile section */
 
@@ -191,6 +192,8 @@
 		F35516831FED1AA0004E2D6A /* View+MASShorthandAdditions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "View+MASShorthandAdditions.h"; sourceTree = "<group>"; };
 		F35516841FED1AA0004E2D6A /* Masonry.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Masonry.h; sourceTree = "<group>"; };
 		F35516851FED1AA0004E2D6A /* ViewController+MASAdditions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ViewController+MASAdditions.h"; sourceTree = "<group>"; };
+		F35BD9CA1FFB273200DEBC4A /* AttachView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AttachView.h; sourceTree = "<group>"; };
+		F35BD9CB1FFB273200DEBC4A /* AttachView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AttachView.m; sourceTree = "<group>"; };
 		F3AD76521FF2673300BFF74D /* ProviderWrite.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ProviderWrite.m; sourceTree = "<group>"; };
 		F3AD76571FF2673300BFF74D /* ProviderWrite.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ProviderWrite.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -294,6 +297,8 @@
 				F3AD76521FF2673300BFF74D /* ProviderWrite.m */,
 				F34E36C71FED034B00045E49 /* DocUtils.h */,
 				F34E36C81FED034B00045E49 /* DocUtils.m */,
+				F35BD9CA1FFB273200DEBC4A /* AttachView.h */,
+				F35BD9CB1FFB273200DEBC4A /* AttachView.m */,
 			);
 			path = DragAndDropDemo;
 			sourceTree = "<group>";
@@ -847,6 +852,7 @@
 				F34E36901FECA5A300045E49 /* main.m in Sources */,
 				F3AD76581FF2673300BFF74D /* ProviderWrite.m in Sources */,
 				F34E36821FECA5A300045E49 /* AppDelegate.m in Sources */,
+				F35BD9CC1FFB273200DEBC4A /* AttachView.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
